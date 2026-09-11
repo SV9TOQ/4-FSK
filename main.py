@@ -25,3 +25,11 @@ def bits_to_text(bits):
     for i in range(0, len(bits), 8):
         chars.append(chr(int(bits[i:i+8], 2)))
     return ''.join(chars)
+
+
+if __name__ == '__main__':
+    text = input("Enter the text: ")
+    bits = text_to_bits(text)
+    print(bits)
+    rx_text = bits_to_text(bits)
+    print(rx_text)
