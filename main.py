@@ -38,9 +38,31 @@ def gen_pre():
     return np.sin(2*np.pi*pre_freq*t)
 
 
+# ===== UI ======
+def menu():
+    while True:
+        print("Please select one of the following numbers.")
+        print("1. Send text")
+        print("2. Decode recent text")
+        print("3. Exit")
+
+        try:
+            selected = int(input("Enter a number: "))
+        except ValueError:
+            print("Invalid input. Please enter an integer.")   
+
+        if(selected == 1):
+            text = input("Enter the text: ")
+            bits = text_to_bits(text)
+            print(bits)
+        elif(selected == 2):
+            rx_text = bits_to_text(bits)
+            print(rx_text)
+        elif(selected == 3):
+            return 0
+
+        print("\n")
+            
+
 if __name__ == '__main__':
-    text = input("Enter the text: ")
-    bits = text_to_bits(text)
-    print(bits)
-    rx_text = bits_to_text(bits)
-    print(rx_text)
+    menu()
