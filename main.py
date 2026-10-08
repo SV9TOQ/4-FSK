@@ -1,8 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import tkinter as tk
 
 # ===== Adjustable parameters =====
 volume = 1
+mean = 0
+variance = 5
+global text
 
 # ===== Parameters =====
 sample_rate = 48000
@@ -31,16 +35,20 @@ def bits_to_text(bits):
     return ''.join(chars)
 
 # === Transmit Sequence ===
-def encode(bits):
-    tx_signal = np.zeros(len(bits) // 2 * num_samples)
-    # Pad to even bits (usually not used) 
-    if(len(bits)%2 != 0):
-        bits += '0'
-    for i in range(0,len(bits),2):
-        idx = int(bits[i:i+2],2)
-        t = np.arange(num_samples)/sample_rate
-        tx_signal[i//2*num_samples : (i//2+1)*num_samples] = \
-            volume*np.sin(2*np.pi*bit_freq[idx]*t)
+def encode(text):
+    if text == '':
+        return 0
+    else:
+        bits = text_to_bits(text)
+        tx_signal = np.zeros(len(bits) // 2 * num_samples)
+        # Pad to even bits (usually not used) 
+        if(len(bits)%2 != 0):
+            bits += '0'
+        for i in range(0,len(bits),2):
+            idx = int(bits[i:i+2],2)
+            t = np.arange(num_samples)/sample_rate
+            tx_signal[i//2*num_samples : (i//2+1)*num_samples] = \
+                volume*np.sin(2*np.pi*bit_freq[idx]*t)
     return tx_signal
 
 # gen_pre is used to trigger the radio's vox similar to how it is used in APRS AFSK
@@ -63,21 +71,24 @@ def decode(signal):
 
     bits = ''
     for i in range(num_symbols):
-        chunk = sig[i * num_samples:(i + 1) * num_samples]
+        chunk = sig[i * num_samples:(i+1)*num_samples]
 
         # Score each candidate frequency
         scores = []
         for ref in refs:
-            scores.append(np.abs(np.sum(chunk * ref)))
+            scores.append(np.abs(np.sum(chunk*ref)))
 
         # argmax gives the index of the best-matching frequency
         idx = int(np.argmax(scores))
-
-        # Convert index back to 2 bits
         bits += format(idx, '02b')
 
     text = bits_to_text(bits)
     return text
+
+# Testing with noise if needed
+def make_noise(signal):
+    noise = np.random.normal(mean,variance,len(signal))
+    return signal + noise
 
 def make_plot(tx):
     t = np.arange(len(tx))/sample_rate
@@ -102,45 +113,72 @@ def make_plot(tx):
     plt.grid()
     plt.show()
 
-# ===== UI ======
 def menu():
     while True:
-        print("Please select one of the following numbers.")
-        print("1. Send text")
-        print("2. Decode recent text")
-        print("3. Exit")
-        try:
-            selected = int(input("Enter a number: "))
-        except ValueError:
-            print("Invalid input. Please enter an integer.")   
-            continue
+            print("Please select one of the following numbers.")
+            print("1. Send text")
+            print("2. Decode recent text")
+            print("3. Exit")
+            try:
+                selected = int(input("Enter a number: "))
+            except ValueError:
+                print("Invalid input. Please enter an integer.")   
+                continue
+    
+            # Transmit Select
+            if(selected == 1):
+                text = input("Enter the text: ")
+    
+                # Create and mix the pre and message signals
+                pre = gen_pre()
+                signal = encode(text)
+                mid = np.zeros(len(pre)+len(signal))
+                mid[:len(pre)] = pre
+                mid[len(pre):] = signal
+                tx_signal = mid
+    
+                # Make plots for testing
+                make_plot(tx_signal)
+    
+            # Receive Select
+            elif(selected == 2):
+                #rx_signal = make_noise(tx_signal)
+                rx_signal = tx_signal
+                print(decode(rx_signal))
+            elif(selected == 3):
+                return 0
+    
+            print("\n")
 
-        # Transmit Select
-        if(selected == 1):
-            text = input("Enter the text: ")
-            bits = text_to_bits(text)
-            print(bits)
+# ===== UI ======
+def app():
+    root = tk.Tk()
 
-            # Create and mix the pre and message signals
-            pre = gen_pre()
-            signal = encode(bits)
-            mid = np.zeros(len(pre)+len(signal))
-            mid[:len(pre)] = pre
-            mid[len(pre):] = signal
-            tx_signal = mid
+    # Variables
+    txText = tk.StringVar()
 
-            # Make plots for testing
-            #make_plot(tx_signal)
 
-        # Receive Select
-        elif(selected == 2):
-            #rx_text = bits_to_text(bits)
-            #print(rx_text)
-            print(decode(tx_signal))
-        elif(selected == 3):
-            return 0
+    # Setting some window properties
+    root.title("4-FSK")
+    root.configure(background="lightgray")
+    root.geometry("450x600+550+100")
 
-        print("\n")
+    textWindow = tk.Frame(root, width=350, height=300)
+    textWindow.grid(row=0,column=1)
+    tx_button = tk.Button(root, width=50, height=5, text='Transmit',activebackground='red')
+    tx_button.grid(row=2,column=1)
+
+
+    tk.Label(root, text="Message").grid(row=1,column=0)
+    txInput = tk.Entry(root,textvariable=txText,width=60).grid(row=1,column=1)
+
+    endProgram = tk.Button(root, width=50, height=5, text='Close Program',command=root.destroy,activebackground='red')
+    endProgram.grid(row=3,column=1)
+
+    #tk.Label(root,text='Testing the 4-FSK app for the future').pack()
+    #tk.Label(root,text='-SV9TOQ').pack()
+
+    root.mainloop()
 
 if __name__ == '__main__':
-    menu()
+    app()
