@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tkinter as tk
+import os
 
 # ===== Adjustable parameters =====
 volume = 1
@@ -49,6 +50,12 @@ def encode(text):
             t = np.arange(num_samples)/sample_rate
             tx_signal[i//2*num_samples : (i//2+1)*num_samples] = \
                 volume*np.sin(2*np.pi*bit_freq[idx]*t)
+        # Combine pre and signal
+        pre = gen_pre()
+        mid = np.zeros(len(pre)+len(tx_signal))
+        mid[:len(pre)] = pre
+        mid[len(pre):] = tx_signal
+        tx_signal = mid
     return tx_signal
 
 # gen_pre is used to trigger the radio's vox similar to how it is used in APRS AFSK
@@ -158,26 +165,58 @@ def app():
     txText = tk.StringVar()
 
 
+    # === Functions ===
+    def log_write(msg):
+        log.config(state="normal")
+        log.insert("end", msg + "\n")
+        log.see("end")
+        log.config(state="disabled")
+
+    # Used to trigger the TX button
+    def submit():
+        text = txText.get()
+        if not text:
+            return
+        txText.set('')
+        log_write(f"tx > {text}")     # <-- prints to the big frame
+        txSignal = encode(text)
+        #make_plot(txSignal)
+        
+
     # Setting some window properties
     root.title("4-FSK")
     root.configure(background="lightgray")
-    root.geometry("450x600+550+100")
+    root.geometry("450x600")
+    root.minsize(400,400)
 
-    textWindow = tk.Frame(root, width=350, height=300)
-    textWindow.grid(row=0,column=1)
-    tx_button = tk.Button(root, width=50, height=5, text='Transmit',activebackground='red')
-    tx_button.grid(row=2,column=1)
+    # Conversation Window
+    textWindow = tk.Frame(root,width=350,height=300)
+    textWindow.grid(row=0,column=1,sticky='ew')
+    textWindow.columnconfigure(0, weight=1)
+    textWindow.rowconfigure(0, weight=1)
+    log = tk.Text(textWindow, height=10, wrap="word", font=("Consolas", 11),
+                  background="#1e1e1e", foreground="#d4d4d4",
+                  insertbackground="#d4d4d4", relief="flat")
+    log.grid(row=0, column=0, sticky="ew")
 
+    scrollbar = tk.Scrollbar(textWindow, orient="vertical", command=log.yview)
+    scrollbar.grid(row=0, column=1, sticky="ns")
+    log.config(yscrollcommand=scrollbar.set, state="disabled")
 
+    # TX Button
+    tx_button = tk.Button(root,width=50,height=5,text='Transmit',command=submit,activebackground='red')
+    tx_button.grid(row=2,column=1,sticky='ew')
     tk.Label(root, text="Message").grid(row=1,column=0)
-    txInput = tk.Entry(root,textvariable=txText,width=60).grid(row=1,column=1)
+    txInput = tk.Entry(root,textvariable=txText,width=60).grid(row=1,column=1,sticky='ew')
 
-    endProgram = tk.Button(root, width=50, height=5, text='Close Program',command=root.destroy,activebackground='red')
-    endProgram.grid(row=3,column=1)
+    close_Path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'icons','close.png')
+    closeIcon = tk.PhotoImage(file=close_Path)
+    endProgram = tk.Button(root, width=5, height=5,command=root.destroy,activebackground='red',image=closeIcon)
+    endProgram.image = closeIcon
+    endProgram.grid(row=0,column=2,sticky='ew')
 
     #tk.Label(root,text='Testing the 4-FSK app for the future').pack()
     #tk.Label(root,text='-SV9TOQ').pack()
-
     root.mainloop()
 
 if __name__ == '__main__':
